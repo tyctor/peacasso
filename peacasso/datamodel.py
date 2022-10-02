@@ -25,3 +25,4 @@ class GeneratorConfig:
     return_intermediates: bool = False
     mask_image: Any = None
     attention_slice: Optional[Union[str, int]] = None
+    image_index: Optional[int] = 0

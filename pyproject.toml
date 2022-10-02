@@ -52,3 +52,4 @@ namespaces = false
 
 [project.scripts]
 peacasso = "peacasso.cli:run"
+peacassomh = "peacasso.climh:run"

@@ -45,3 +45,28 @@ class ImageGenerator:
         """
         available_gpus = [i for i in range(torch.cuda.device_count())]
         return available_gpus
+
+
+class FakeImageGenerator:
+    """
+    just for testing without GPU
+    """
+
+    def __init__(
+        self,
+        model: str = "CompVis/stable-diffusion-v1-4",
+        token: str = os.environ.get("HF_API_TOKEN"),
+        cuda_device: int = 0,
+    ) -> None:
+        self.token = token
+
+    def generate(self, config):
+        num_images = config.num_images
+        width = config.width
+        height = config.height
+        images = []
+        for _ in range(num_images):
+            image = Image.new("RGBA", (width, height), (255, 0, 0))
+            images.append(image)
+        time.sleep(0.3)
+        return dict(images=images)
