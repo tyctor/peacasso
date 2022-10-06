@@ -111,7 +111,7 @@ class StableDiffusionPipeline(DiffusionPipeline):
         if isinstance(prompt, str):
             batch_size = 1
         elif isinstance(prompt, list):
-            batch_size = len(prompt)
+            batch_size = 1 #len(prompt)
         else:
             raise ValueError(
                 f"`prompt` has to be of type `str` or `list` but is {type(prompt)}"
@@ -289,12 +289,11 @@ class StableDiffusionPipeline(DiffusionPipeline):
             image = intermediate_images[-1]
         else:
             image = decode_image(latents, self.vae)
-            safety_cheker_input = self.feature_extractor(
-                self.numpy_to_pil(image), return_tensors="pt"
-            ).to(self.device)
-            image, has_nsfw_concept = self.safety_checker(
-                images=np.asarray(image), clip_input=safety_cheker_input.pixel_values
-            )
+            #safety_cheker_input = self.feature_extractor(
+           #     self.numpy_to_pil(image), return_tensors="pt"
+            #).to(self.device)
+            #image = clip_input=safety_cheker_input.pixel_values
+           # )
             image = self.numpy_to_pil(image)
 
         return {

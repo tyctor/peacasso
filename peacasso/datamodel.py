@@ -14,7 +14,7 @@ class GeneratorConfig:
     mode: str = "prompt"   # prompt, image, mask
     height: Optional[int] = 512
     width: Optional[int] = 512
-    num_inference_steps: Optional[int] = 50
+    num_inference_steps: Optional[int] = 20
     guidance_scale: Optional[float] = 7.5
     eta: Optional[float] = 0.0
     # generator: Optional[Any] = None
