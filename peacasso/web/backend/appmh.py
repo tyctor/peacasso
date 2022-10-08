@@ -10,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from peacasso.datamodel import GeneratorConfig
 import hashlib
+import time
+from PIL.ImageOps import fit
 
 from peacasso.utils import base64_to_pil
 
@@ -68,6 +70,7 @@ def generate(prompt_config: GeneratorConfig) -> str:
             return {"status": False, "status_message": str(e)}
         try:
             pil_image = result["images"][prompt_config.image_index]
+            pil_image = fit(pil_image, (prompt_config.image_width, prompt_config.image_height))
             image = io.BytesIO()
             pil_image.save(image, format="PNG")
             pil_image.close()

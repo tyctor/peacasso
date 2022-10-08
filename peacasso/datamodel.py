@@ -26,3 +26,5 @@ class GeneratorConfig:
     mask_image: Any = None
     attention_slice: Optional[Union[str, int]] = None
     image_index: Optional[int] = 0
+    image_width: Optional[int] = 512
+    image_height: Optional[int] = 512

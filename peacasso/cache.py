@@ -12,6 +12,7 @@ class CacheConfig:
     """Configuration for a cache"""
 
     prompt: Union[str, List[str]]
+    num_images: int = 1
     mode: str = "prompt"   # prompt, image, mask
     height: Optional[int] = 512
     width: Optional[int] = 512
@@ -24,6 +25,8 @@ class CacheConfig:
     return_intermediates: bool = False
     mask_image: Any = None
     attention_slice: Optional[Union[str, int]] = None
+    image_width: Optional[int] = 512
+    image_height: Optional[int] = 512
 
     def get_cache_key(self):
         return str(uuid.uuid5(uuid.NAMESPACE_OID, str(self)))
