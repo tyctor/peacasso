@@ -40,19 +40,30 @@ class FileCache:
         return os.path.join(self.path, key[:8])
     
     def get(self, prompt_config):
-        key = CacheConfig(**prompt_config.__dict__).get_cache_key()
+        data = prompt_config.__dict__
+        key = CacheConfig(**data).get_cache_key()
+        print(key, prompt_config.__dict__)
         cache_path = os.path.join(self._get_path_from_key(key), key)
+        print(cache_path)
         if os.path.exists(cache_path):
             return open(cache_path, "rb")
         return None
 
     def set(self, prompt_config, content):
-        key = CacheConfig(**prompt_config.__dict__).get_cache_key()
+        data = prompt_config.__dict__
+        data["prompt"] = data["prompt"][0]
+        key = CacheConfig(**data).get_cache_key()
         cache_path = self._get_path_from_key(key)
         os.makedirs(cache_path, exist_ok=True)
         cache_file = os.path.join(cache_path, key)
+        print(key, prompt_config.__dict__)
+        print(cache_path)
+        print(cache_file)
         with open(cache_file, "wb") as file:
             file.write(content)
 
 
 cache = FileCache()
+
+#0fd97754-3380-5bd7-aed6-432488198065
+#0fd97754-3380-5bd7-aed6-432488198065

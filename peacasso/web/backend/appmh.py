@@ -67,6 +67,7 @@ def generate(prompt_config: GeneratorConfig) -> str:
         try:
             result = generator.generate(prompt_config)
         except Exception as e:
+            print("errorrr: {}".format(e))
             return {"status": False, "status_message": str(e)}
         try:
             pil_image = result["images"][prompt_config.image_index]
