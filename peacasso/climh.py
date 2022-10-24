@@ -1,5 +1,7 @@
+import asyncio
 import typer
 import uvicorn
+from peacasso.ws.backend.appmhws import main
 
 # from peacasso.web.backend.app import launch
 
@@ -21,6 +23,24 @@ def ui(
         reload=reload,
     )
 
+
+@app.command()
+def ws(
+    scheme: str = "ws",
+    host: str = "meaningful.noir.studio",
+    port: int = 8000,
+    path: str = "/ws/generate/"
+):
+    """
+    Launch the peacasso websocket client.Pass in parameters scheme, host, port and path to override the default values.
+    """
+    asyncio.run(main(
+        scheme=scheme,
+        host=host,
+        port=port,
+        path=path
+    ))        
+        
 
 @app.command()
 def list():

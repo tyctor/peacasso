@@ -26,7 +26,8 @@ dependencies = [
     "pydantic",
     "uvicorn",
     "typer",
-    "fastapi", 
+    "fastapi",
+    "websockets"
 ]
 dynamic = ["version"]
 
