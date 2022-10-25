@@ -11,7 +11,7 @@ from functools import wraps
 class CacheConfig:
     """Configuration for a cache"""
 
-    prompt: Union[str, List[str]]
+    prompt: str
     num_images: int = 1
     mode: str = "prompt"   # prompt, image, mask
     height: Optional[int] = 512
@@ -40,7 +40,7 @@ class FileCache:
         return os.path.join(self.path, key[:8])
     
     def get(self, prompt_config):
-        data = prompt_config.__dict__
+        data = prompt_config.dict()
         key = CacheConfig(**data).get_cache_key()
         cache_path = os.path.join(self._get_path_from_key(key), key)
         if os.path.exists(cache_path):
@@ -48,8 +48,7 @@ class FileCache:
         return None
 
     def set(self, prompt_config, content):
-        data = prompt_config.__dict__
-        data["prompt"] = data["prompt"][0]
+        data = prompt_config.dict()
         key = CacheConfig(**data).get_cache_key()
         cache_path = self._get_path_from_key(key)
         os.makedirs(cache_path, exist_ok=True)
