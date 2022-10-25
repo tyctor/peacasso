@@ -1,21 +1,26 @@
-import time
-import websockets
-import json
+import asyncio
 import base64
-from uuid import UUID
-from datetime import datetime
-from typing import Any, List
-from io import BytesIO
-import io
-import os
-from pydantic import BaseModel
-from peacasso.generator import ImageGenerator, FakeImageGenerator
-from peacasso.cache import cache
 import hashlib
-import time
-from PIL.ImageOps import fit
+import io
+import itertools
+import json
 import logging
+import os
+import random
+import time
+import typing as t
+from datetime import datetime
+from io import BytesIO
+from queue import Empty, Queue
+from typing import Any, List
+from uuid import UUID
 
+import websockets
+from PIL.ImageOps import fit
+from pydantic import BaseModel
+
+from peacasso.cache import cache
+from peacasso.generator import FakeImageGenerator, ImageGenerator
 from peacasso.utils import base64_to_pil
 
 GREEN = "\033[92m"
@@ -27,12 +32,48 @@ WARNING = "\033[93m"
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 
-# load token from .env variable
-hf_token = os.environ.get("HF_API_TOKEN")
-if hf_token:
-    generator = ImageGenerator(token=hf_token)
-else:
-    generator = FakeImageGenerator(token=hf_token)
+T = t.TypeVar("T")
+
+
+class OrderedSet(t.MutableSet[T]):
+    """A set that preserves insertion order by internally using a dict.
+    >>> OrderedSet([1, 2, "foo"])
+    """
+
+    __slots__ = ("_d",)
+
+    def __init__(self, iterable: t.Optional[t.Iterable[T]] = None):
+        self._d = dict.fromkeys(iterable) if iterable else {}
+
+    def add(self, x: T) -> None:
+        self._d[x] = None
+
+    def clear(self) -> None:
+        self._d.clear()
+
+    def discard(self, x: T) -> None:
+        self._d.pop(x, None)
+
+    def __getitem__(self, index) -> T:
+        try:
+            return next(itertools.islice(self._d, index, index + 1))
+        except StopIteration:
+            raise IndexError(f"index {index} out of range")
+
+    def __contains__(self, x: object) -> bool:
+        return self._d.__contains__(x)
+
+    def __len__(self) -> int:
+        return self._d.__len__()
+
+    def __iter__(self) -> t.Iterator[T]:
+        return self._d.__iter__()
+
+    def __str__(self):
+        return f"{{{', '.join(str(i) for i in self)}}}"
+
+    def __repr__(self):
+        return f"<OrderedSet {self}>"
 
 
 class GeneratorConfig(BaseModel):
@@ -92,15 +133,50 @@ def satitize_prompt(prompt):
     return prompt.replace("\n", " ")
 
 
+class SetQueue(Queue):
+    """
+    Queue with unique items
+    """
+
+    def _init(self, maxsize):
+        self.queue = OrderedSet()
+        self.items = dict()
+        self.current = None
+
+    def _put(self, item):
+        # print("_put", item.id,  satitize_prompt(item.prompt_config.prompt[:40]), end=" ")
+        if self.current != item.id:
+            self.queue.add(item.id)
+            self.items[item.id] = item
+        #    print("Done")
+        # else:
+        #    print("Rejected")
+
+    def _get(self):
+        self.current = self.queue.pop()
+        item = self.items.pop(self.current)
+        # print("_get", item.id,  satitize_prompt(item.prompt_config.prompt[:40]))
+        return item
+
+
+# load token from .env variable
+hf_token = os.environ.get("HF_API_TOKEN")
+if hf_token:
+    generator = ImageGenerator(token=hf_token)
+else:
+    generator = FakeImageGenerator(token=hf_token)
+
+
 def generate(prompt_config: GeneratorConfig) -> str:
     """Generate an image given some prompt"""
     image = cache.get(prompt_config)
     if image:
+        image = io.BytesIO(image.read())
+        time.sleep(random.random() * 3)
         logging.info(
-            f"{GRAY}Cached image for prompt: {BOLD}%s...{NC}",
+            f"{GRAY}Cached prompt: {BOLD}%s...{NC}",
             satitize_prompt(prompt_config.prompt[:40]),
         )
-        image = io.BytesIO(image.read())
     else:
         if prompt_config.init_image:
             prompt_config.init_image = base64_to_pil(prompt_config.init_image)
@@ -114,11 +190,31 @@ def generate(prompt_config: GeneratorConfig) -> str:
         pil_image.save(image, format="PNG")
         pil_image.close()
         cache.set(prompt_config, image.getvalue())
+        time.sleep(random.random() * 3)
         logging.info(
-            f"{GREEN}Created image for prompt: {BOLD}%s...{NC}",
+            f"{GREEN}Created prompt: {BOLD}%s...{NC}",
             satitize_prompt(prompt_config.prompt[:40]),
         )
     return image
+
+
+async def consume(queue, websocket):
+    logging.info(f"{GREEN}Started queue consumer{NC}")
+    while True:
+        await asyncio.sleep(0.01)
+        try:
+            item = queue.get(timeout=0.1)
+            image = generate(item.prompt_config)
+            ws_request = {
+                "action": "update",
+                "request_id": time.time(),
+                "pk": str(item.id),
+                "data": {"image": base64.b64encode(image.getvalue()).decode()},
+            }
+            await websocket.send(json.dumps(ws_request))
+            queue.task_done()
+        except Empty:
+            continue
 
 
 async def main(scheme: str, host: str, port: int, path: str, token: str):
@@ -139,24 +235,17 @@ async def main(scheme: str, host: str, port: int, path: str, token: str):
         if ws_response.response_status != 200:
             logging.info(f"{WARNING}%s{NC}", ws_response.data.message)
             return
+
+        queue = SetQueue()
+        consumer = asyncio.create_task(consume(queue, websocket))
+
         while True:
             try:
                 message = await websocket.recv()
                 ws_response = WsResponse(**json.loads(message))
                 # work only on data without assigned image
                 if ws_response.data.image_url is None:
-                    image = generate(ws_response.data.prompt_config)
-                    ws_request = {
-                        "action": "update",
-                        "request_id": time.time(),
-                        "pk": str(ws_response.data.id),
-                        "data": {
-                            "image": base64.b64encode(
-                                image.getvalue()
-                            ).decode()
-                        },
-                    }
-                    await websocket.send(json.dumps(ws_request))
+                    queue.put(ws_response.data)
             except json.JSONDecodeError as exc:
                 logging.info(
                     f"{WARNING}Invalid JSON data:{NC} %s %s",
@@ -165,8 +254,12 @@ async def main(scheme: str, host: str, port: int, path: str, token: str):
                 )
             except TypeError as exc:
                 logging.info(f"{WARNING}Invalid data format:{NC} %s", str(exc))
+            except KeyboardInterrupt:
+                break
             except Exception as exc:
                 logging.info(
                     f"{WARNING}An error occurs during image generate:{NC} %s",
                     str(exc),
                 )
+        consumer.cancel()
+        await asyncio.gather(consumer, return_exceptions=True)
