@@ -1,3 +1,4 @@
+import os
 import asyncio
 import typer
 import uvicorn
@@ -29,7 +30,8 @@ def ws(
     scheme: str = "ws",
     host: str = "meaningful.noir.studio",
     port: int = 8000,
-    path: str = "/ws/generate/"
+    path: str = "/ws/generate/",
+    token: str = os.environ.get("MH_BACKEND_TOKEN") 
 ):
     """
     Launch the peacasso websocket client.Pass in parameters scheme, host, port and path to override the default values.
@@ -38,7 +40,8 @@ def ws(
         scheme=scheme,
         host=host,
         port=port,
-        path=path
+        path=path,
+        token=token
     ))        
         
 

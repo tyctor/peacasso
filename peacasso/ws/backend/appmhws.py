@@ -15,10 +15,19 @@ from peacasso.datamodel import GeneratorConfig
 import hashlib
 import time
 from PIL.ImageOps import fit
+import logging
 
 from peacasso.utils import base64_to_pil
 
-# # load token from .env variable
+GREEN = "\033[92m"
+BLUE = "\033[94m"
+NC = "\033[0m"
+BOLD = "\033[1m"
+WARNING = "\033[93m"
+
+logging.basicConfig(format="%(message)s", level=logging.INFO)
+
+# load token from .env variable
 hf_token = os.environ.get("HF_API_TOKEN")
 if hf_token:
     generator = ImageGenerator(token=hf_token)
@@ -45,13 +54,27 @@ class WsResponse:
     request_id: Any | None
 
 
+@dataclass
+class WsMessage:
+    message: str
+
+
+@dataclass
+class WsAuthResponse:
+    errors: List[str]
+    data: WsMessage
+    action: str
+    response_status: int
+    request_id: Any | None
+
+
 def generate(prompt_config: GeneratorConfig) -> str:
     """Generate an image given some prompt"""
-    #print(prompt_config.image_index)
-    # print(prompt_config.init_image)
+    #logging.info(prompt_config.image_index)
+    # logging.info(prompt_config.init_image)
     image = cache.get(prompt_config)
     if image:
-        print("Cached image")
+        logging.info("Cached image")
         image = io.BytesIO(image.read())
     else:
         if prompt_config.init_image:
@@ -67,14 +90,27 @@ def generate(prompt_config: GeneratorConfig) -> str:
     return image
 
 
-async def main(scheme: str, host: str, port: int, path: str):
+async def main(scheme: str, host: str, port: int, path: str, token: str):
+    if not token:
+        logging.info(f"{WARNING}Empty token, exiting...{NC}")
+        return
     url = f"{scheme}://{host}:{port}{path}"
-    print(f"Connecting to websocket on {url}")
     async with websockets.connect(url) as websocket:
+        ws_request = {
+            "action": "login",
+            "request_id": time.time(), 
+            "token": token,
+        }
+        logging.info(f"{GREEN}Connected to websocket on %s{NC}", url)
+        await websocket.send(json.dumps(ws_request))
+        message = await websocket.recv()
+        ws_response = WsAuthResponse(**json.loads(message))
+        if ws_response.response_status != 200:
+            logging.info(f"{WARNING}%s{NC}", ws_response.data.message)
+            return
         while True:
             try:
                 message = await websocket.recv()
-                print(f"Got message {message}")
                 ws_response = WsResponse(**json.loads(message))
                 # work only on data without assigned image
                 if ws_response.data.image_url is None:
@@ -87,11 +123,11 @@ async def main(scheme: str, host: str, port: int, path: str):
                             "image": base64.b64encode(image.getvalue()).decode()
                         }
                     }
-                    print(f"Created image for GeneratedImage({ws_response.data.id})")
+                    logging.info(f"{BLUE}Created image for GeneratedImage(%s){NC}", ws_response.data.id)
                     await websocket.send(json.dumps(ws_request))
             except json.JSONDecodeError as exc:
-                print("Invalid JSON data:", str(exc), message_json)
+                logging.info(f"{WARNING}Invalid JSON data:{NC} %s %s", str(exc), message_json)
             except TypeError as exc:
-                print("Invalid data format:", str(exc))
+                logging.info(f"{WARNING}Invalid data format:{NC} %s", str(exc))
             except Exception as exc:
-                print("An error occurs during image generate:", str(exc))
+                logging.info(f"{WARNING}An error occurs during image generate:{NC} %s", str(exc))

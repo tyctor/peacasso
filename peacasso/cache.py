@@ -42,9 +42,7 @@ class FileCache:
     def get(self, prompt_config):
         data = prompt_config.__dict__
         key = CacheConfig(**data).get_cache_key()
-        print(key, prompt_config.__dict__)
         cache_path = os.path.join(self._get_path_from_key(key), key)
-        print(cache_path)
         if os.path.exists(cache_path):
             return open(cache_path, "rb")
         return None
@@ -56,9 +54,6 @@ class FileCache:
         cache_path = self._get_path_from_key(key)
         os.makedirs(cache_path, exist_ok=True)
         cache_file = os.path.join(cache_path, key)
-        print(key, prompt_config.__dict__)
-        print(cache_path)
-        print(cache_file)
         with open(cache_file, "wb") as file:
             file.write(content)
 
