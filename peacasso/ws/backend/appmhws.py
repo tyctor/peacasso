@@ -172,7 +172,7 @@ def generate(prompt_config: GeneratorConfig) -> str:
     image = cache.get(prompt_config)
     if image:
         image = io.BytesIO(image.read())
-        time.sleep(random.random() * 3)
+    #    time.sleep(random.random() * 3)
         logging.info(
             f"{GRAY}Cached prompt: {BOLD}%s...{NC}",
             satitize_prompt(prompt_config.prompt[:40]),
@@ -190,7 +190,7 @@ def generate(prompt_config: GeneratorConfig) -> str:
         pil_image.save(image, format="PNG")
         pil_image.close()
         cache.set(prompt_config, image.getvalue())
-        time.sleep(random.random() * 3)
+    #    time.sleep(random.random() * 3)
         logging.info(
             f"{GREEN}Created prompt: {BOLD}%s...{NC}",
             satitize_prompt(prompt_config.prompt[:40]),
