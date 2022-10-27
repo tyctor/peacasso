@@ -111,7 +111,7 @@ class WsData(BaseModel):
 
 class WsResponse(BaseModel):
     errors: List[str]
-    data: WsData
+    data: WsData | None
     action: str
     response_status: int
     request_id: Any | None
@@ -203,7 +203,7 @@ async def consume(queue, websocket):
     while True:
         await asyncio.sleep(0.01)
         try:
-            item = queue.get(timeout=0.1)
+            item = queue.get(timeout=0.01)
             image = generate(item.prompt_config)
             ws_request = {
                 "action": "update",
@@ -215,6 +215,8 @@ async def consume(queue, websocket):
             queue.task_done()
         except Empty:
             continue
+        except KeyboardInterrupt:
+            break
 
 
 async def main(scheme: str, host: str, port: int, path: str, token: str):
@@ -271,7 +273,7 @@ async def main(scheme: str, host: str, port: int, path: str, token: str):
                     message = await websocket.recv()
                     ws_response = WsResponse(**json.loads(message))
                     # work only on data without assigned image
-                    if ws_response.data.image_url is None:
+                    if ws_response.data and ws_response.data.image_url is None:
                         queue.put(ws_response.data)
                 except json.JSONDecodeError as exc:
                     logging.info(
@@ -291,8 +293,9 @@ async def main(scheme: str, host: str, port: int, path: str, token: str):
                     break
                 except Exception as exc:
                     logging.info(
-                        f"{WARNING}An error occurs during image generate:{NC} %s",
+                        f"{WARNING}An error occurs during image generate:{NC} %s\n%s",
                         str(exc),
+                        message
                     )
             consumer.cancel()
             await asyncio.gather(consumer, return_exceptions=True)
