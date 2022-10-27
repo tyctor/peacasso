@@ -30,7 +30,7 @@ NC = "\033[0m"
 BOLD = "\033[1m"
 WARNING = "\033[93m"
 
-logging.basicConfig(format="%(message)s", level=logging.INFO)
+logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO)
 
 T = t.TypeVar("T")
 
@@ -223,17 +223,43 @@ async def main(scheme: str, host: str, port: int, path: str, token: str):
         return
     url = f"{scheme}://{host}:{port}{path}"
     async with websockets.connect(url) as websocket:
+        logging.info(f"{GREEN}Connected to websocket on %s{NC}", url)
         ws_request = {
             "action": "login",
             "request_id": time.time(),
             "token": token,
         }
-        logging.info(f"{GREEN}Connected to websocket on %s{NC}", url)
-        await websocket.send(json.dumps(ws_request))
-        message = await websocket.recv()
-        ws_response = WsAuthResponse(**json.loads(message))
-        if ws_response.response_status != 200:
-            logging.info(f"{WARNING}%s{NC}", ws_response.data.message)
+        try:
+            await websocket.send(json.dumps(ws_request))
+            message = await websocket.recv()
+            ws_response = WsAuthResponse(**json.loads(message))
+            if ws_response.response_status != 200:
+                logging.info(f"{WARNING}%s{NC}", ws_response.data.message)
+                return
+            logging.info(f"{GREEN}Login OK{NC}")
+        except json.JSONDecodeError as exc:
+            logging.info(
+                f"{WARNING}Invalid JSON data:{NC} %s %s",
+                str(exc),
+                message_json,
+            )
+            return
+        except TypeError as exc:
+            logging.info(f"{WARNING}Invalid data format:{NC} %s", str(exc))
+            return
+        except KeyboardInterrupt:
+            return
+        except websockets.exceptions.ConnectionClosedOK as exc:
+            logging.info(
+                f"{WARNING}Connection Closed:{NC} %s",
+                str(exc),
+            )
+            return
+        except Exception as exc:
+            logging.info(
+                f"{WARNING}An error occurs during image generate:{NC} %s",
+                str(exc),
+            )
             return
 
         queue = SetQueue()
@@ -255,6 +281,12 @@ async def main(scheme: str, host: str, port: int, path: str, token: str):
             except TypeError as exc:
                 logging.info(f"{WARNING}Invalid data format:{NC} %s", str(exc))
             except KeyboardInterrupt:
+                break
+            except websockets.exceptions.ConnectionClosedOK as exc:
+                logging.info(
+                    f"{WARNING}Connection Closed:{NC} %s",
+                    str(exc),
+                )
                 break
             except Exception as exc:
                 logging.info(
