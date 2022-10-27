@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from peacasso.cache import cache
 from peacasso.generator import FakeImageGenerator, ImageGenerator
 from peacasso.utils import base64_to_pil
+from peacasso.datamodel import GeneratorConfig
 
 GREEN = "\033[92m"
 BLUE = "\033[94m"
@@ -74,30 +75,6 @@ class OrderedSet(t.MutableSet[T]):
 
     def __repr__(self):
         return f"<OrderedSet {self}>"
-
-
-class GeneratorConfig(BaseModel):
-    """Configuration for a generation"""
-
-    prompt: str
-    num_images: int = 1
-    mode: str = "prompt"  # prompt, image, mask
-    height: int | None = 512
-    width: int | None = 512
-    num_inference_steps: int | None = 20
-    guidance_scale: float | None = 7.5
-    eta: float | None = 0.0
-    # generator: Optional[Any] = None
-    output_type: str | None = "pil"
-    strength: float = 0.8
-    init_image: Any = None
-    seed: int | None = None
-    return_intermediates: bool = False
-    mask_image: Any = None
-    attention_slice: str | int | None = None
-    image_index: int | None = 0
-    image_width: int | None = 512
-    image_height: int | None = 512
 
 
 class WsData(BaseModel):

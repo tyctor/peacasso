@@ -1,6 +1,6 @@
 import os
 import uuid
-from dataclasses import field
+from dataclasses import field, asdict
 from random import seed
 from typing import Any, List, Optional, Union
 from pydantic.dataclasses import dataclass
@@ -38,9 +38,15 @@ class FileCache:
 
     def _get_path_from_key(self, key: str):
         return os.path.join(self.path, key[:8])
+
+    def _get_data(self, prompt_config):
+        data = asdict(prompt_config)
+        if isinstance(data["prompt"], (list, tuple)):
+            data["prompt"] = " ".join(data["prompt"])
+        return data
     
     def get(self, prompt_config):
-        data = prompt_config.dict()
+        data = self._get_data(prompt_config)
         key = CacheConfig(**data).get_cache_key()
         cache_path = os.path.join(self._get_path_from_key(key), key)
         if os.path.exists(cache_path):
@@ -48,7 +54,7 @@ class FileCache:
         return None
 
     def set(self, prompt_config, content):
-        data = prompt_config.dict()
+        data = self._get_data(prompt_config)
         key = CacheConfig(**data).get_cache_key()
         cache_path = self._get_path_from_key(key)
         os.makedirs(cache_path, exist_ok=True)
