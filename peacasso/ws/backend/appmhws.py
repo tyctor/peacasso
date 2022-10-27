@@ -129,8 +129,11 @@ class WsAuthResponse(BaseModel):
     request_id: Any | None
 
 
-def satitize_prompt(prompt):
-    return prompt.replace("\n", " ")
+def satitize_prompt(prompt, length=40):
+    prompt = prompt.replace("\n", " ")
+    if len(prompt) < length - 3:
+        return prompt
+    return prompt[:length - 3] + "..."
 
 
 class SetQueue(Queue):
@@ -174,7 +177,7 @@ def generate(prompt_config: GeneratorConfig) -> str:
         image = io.BytesIO(image.read())
     #    time.sleep(random.random() * 3)
         logging.info(
-            f"{GRAY}Cached prompt: {BOLD}%s...{NC}",
+            f"{GRAY}Prompt: {BOLD}%-40s{NC}{GRAY} Cached{NC}",
             satitize_prompt(prompt_config.prompt[:40]),
         )
     else:
@@ -192,7 +195,7 @@ def generate(prompt_config: GeneratorConfig) -> str:
         cache.set(prompt_config, image.getvalue())
     #    time.sleep(random.random() * 3)
         logging.info(
-            f"{GREEN}Created prompt: {BOLD}%s...{NC}",
+            f"{GREEN}Prompt: {BOLD}%-40s{NC}{GREEN} Created{NC}",
             satitize_prompt(prompt_config.prompt[:40]),
         )
     return image
