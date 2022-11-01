@@ -1,7 +1,6 @@
 import os
 import asyncio
 import typer
-import uvicorn
 from typing import List
 from peacasso.ws.backend.appmhws import main
 
@@ -12,9 +11,9 @@ app = typer.Typer()
 
 @app.command()
 def ws(
-    scheme: str = "ws",
+    scheme: str = "wss",
     host: str = "meaningful.noir.studio",
-    port: int = 8000,
+    port: int = 443,
     path: str = "/ws/generate/",
     token: str = os.environ.get("MH_BACKEND_TOKEN"),
     cuda_device: List[int] = [0]
