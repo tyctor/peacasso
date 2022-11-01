@@ -1,7 +1,6 @@
 import os
 import asyncio
 import typer
-import uvicorn
 from peacasso.ws.backend.appmhws import main
 
 # from peacasso.web.backend.app import launch
