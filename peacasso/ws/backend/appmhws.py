@@ -139,20 +139,13 @@ class SetQueue(Queue):
         return item
 
 
-# load token from .env variable
-hf_token = os.environ.get("HF_API_TOKEN")
-if hf_token:
-    generator = ImageGenerator(token=hf_token)
-else:
-    generator = FakeImageGenerator(token=hf_token)
-
-
-def generate(prompt_config: GeneratorConfig) -> str:
+async def generate(prompt_config: GeneratorConfig, generator) -> str:
     """Generate an image given some prompt"""
     image = cache.get(prompt_config)
     if image:
         image = io.BytesIO(image.read())
     #    time.sleep(random.random() * 3)
+    #    await asyncio.sleep(interval)
         logging.info(
             f"{GRAY}Prompt: {BOLD}%-40s{NC}{GRAY} Cached{NC}",
             satitize_prompt(prompt_config.prompt[:40]),
@@ -171,20 +164,23 @@ def generate(prompt_config: GeneratorConfig) -> str:
         pil_image.close()
         cache.set(prompt_config, image.getvalue())
     #    time.sleep(random.random() * 3)
+        await asyncio.sleep(random.random() * 3)
         logging.info(
-            f"{GREEN}Prompt: {BOLD}%-40s{NC}{GREEN} Created{NC}",
+            f"{GREEN}Prompt: {BOLD}%-40s{NC}{GREEN} Created (%s){NC}",
             satitize_prompt(prompt_config.prompt[:40]),
+            generator.device
         )
     return image
 
 
-async def consume(queue, websocket):
-    logging.info(f"{GREEN}Started queue consumer{NC}")
+async def consume(queue, websocket, generator):
+    logging.info(f"{GREEN}Started queue consumer for %s{NC}", generator.device)
     while True:
         await asyncio.sleep(0.01)
         try:
             item = queue.get(timeout=0.01)
-            image = generate(item.prompt_config)
+            queue.task_done()
+            image = await generate(item.prompt_config, generator)
             ws_request = {
                 "action": "update",
                 "request_id": time.time(),
@@ -192,14 +188,13 @@ async def consume(queue, websocket):
                 "data": {"image": base64.b64encode(image.getvalue()).decode()},
             }
             await websocket.send(json.dumps(ws_request))
-            queue.task_done()
         except Empty:
             continue
         except KeyboardInterrupt:
             break
 
 
-async def main(scheme: str, host: str, port: int, path: str, token: str):
+async def main(scheme: str, host: str, port: int, path: str, token: str, cuda_device: List[int]):
     if not token:
         logging.info(f"{WARNING}Empty token, exiting...{NC}")
         return
@@ -246,7 +241,17 @@ async def main(scheme: str, host: str, port: int, path: str, token: str):
                 return
 
             queue = SetQueue()
-            consumer = asyncio.create_task(consume(queue, websocket))
+
+            # load token from .env variable
+            consumers = []
+            for dev in cuda_device:
+                logging.info(f"{GREEN}Creating generator on cuda:%d{NC}", dev)
+                hf_token = os.environ.get("HF_API_TOKEN")
+                if hf_token:
+                    generator = ImageGenerator(token=hf_token, cuda_device=dev)
+                else:
+                    generator = FakeImageGenerator(token=hf_token, cuda_device=dev)
+                consumers.append(asyncio.create_task(consume(queue, websocket, generator)))
 
             while True:
                 try:
@@ -277,8 +282,9 @@ async def main(scheme: str, host: str, port: int, path: str, token: str):
                         str(exc),
                         message
                     )
-            consumer.cancel()
-            await asyncio.gather(consumer, return_exceptions=True)
+            for consumer in consumers:
+                consumer.cancel()
+                await asyncio.gather(consumer, return_exceptions=True)
     except websockets.exceptions.InvalidHandshake as exc:
         logging.info(
             f"{WARNING}Connection Closed:{NC} %s",

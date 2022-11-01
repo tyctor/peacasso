@@ -2,6 +2,7 @@ import os
 import asyncio
 import typer
 import uvicorn
+from typing import List
 from peacasso.ws.backend.appmhws import main
 
 # from peacasso.web.backend.app import launch
@@ -15,17 +16,19 @@ def ws(
     host: str = "meaningful.noir.studio",
     port: int = 8000,
     path: str = "/ws/generate/",
-    token: str = os.environ.get("MH_BACKEND_TOKEN") 
+    token: str = os.environ.get("MH_BACKEND_TOKEN"),
+    cuda_device: List[int] = [0]
 ):
     """
-    Launch the peacasso websocket client.Pass in parameters scheme, host, port and path to override the default values.
+    Launch the peacasso websocket client.Pass in parameters scheme, host, port, path and cuda_device to override the default values.
     """
     asyncio.run(main(
         scheme=scheme,
         host=host,
         port=port,
         path=path,
-        token=token
+        token=token,
+        cuda_device=cuda_device
     ))        
         
 

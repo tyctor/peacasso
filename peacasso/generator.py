@@ -58,6 +58,8 @@ class FakeImageGenerator:
         token: str = os.environ.get("HF_API_TOKEN"),
         cuda_device: int = 0,
     ) -> None:
+        self.cuda_device = cuda_device
+        self.device = f"cuda:{cuda_device}"
         self.token = token
 
     def generate(self, config):
