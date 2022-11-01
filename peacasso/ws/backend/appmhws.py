@@ -164,7 +164,7 @@ async def generate(prompt_config: GeneratorConfig, generator) -> str:
         pil_image.close()
         cache.set(prompt_config, image.getvalue())
     #    time.sleep(random.random() * 3)
-        await asyncio.sleep(random.random() * 3)
+    #    await asyncio.sleep(random.random() * 3)
         logging.info(
             f"{GREEN}Prompt: {BOLD}%-40s{NC}{GREEN} Created (%s){NC}",
             satitize_prompt(prompt_config.prompt[:40]),
