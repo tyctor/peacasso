@@ -10,9 +10,9 @@ app = typer.Typer()
 
 @app.command()
 def ws(
-    scheme: str = "ws",
+    scheme: str = "wss",
     host: str = "meaningful.noir.studio",
-    port: int = 8000,
+    port: int = 443,
     path: str = "/ws/generate/",
     token: str = os.environ.get("MH_BACKEND_TOKEN") 
 ):
