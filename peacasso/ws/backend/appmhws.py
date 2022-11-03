@@ -83,15 +83,15 @@ class WsData(BaseModel):
     prompt_config: GeneratorConfig
     created_at: datetime
     website: str
-    image_url: str | None
+    image_url: str = None
 
 
 class WsResponse(BaseModel):
     errors: List[str]
-    data: WsData | None
+    data: WsData = None
     action: str
     response_status: int
-    request_id: Any | None
+    request_id: Any = None
 
 
 class WsMessage(BaseModel):
@@ -103,7 +103,7 @@ class WsAuthResponse(BaseModel):
     data: WsMessage
     action: str
     response_status: int
-    request_id: Any | None
+    request_id: Any = None
 
 
 def satitize_prompt(prompt, length=40):
@@ -167,7 +167,7 @@ async def generate(prompt_config: GeneratorConfig, generator) -> str:
     #    await asyncio.sleep(random.random() * 3)
         logging.info(
             f"{GREEN}Prompt: {BOLD}%-40s{NC}{GREEN} Created (%s){NC}",
-            satitize_prompt(prompt_config.prompt[:40]),
+            satitize_prompt(prompt_config.prompt[0][:40]),
             generator.device
         )
     return image
