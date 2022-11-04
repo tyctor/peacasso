@@ -7,6 +7,16 @@ from pydantic.dataclasses import dataclass
 from functools import wraps
 
 
+CACHE_KEY_FIELDS = (
+    "prompt",
+    "num_inference_steps",
+    "guidance_scale",
+    "eta",
+    "output_type",
+    "strength",
+)
+
+
 @dataclass
 class CacheConfig:
     """Configuration for a cache"""
@@ -29,7 +39,11 @@ class CacheConfig:
     image_height: Optional[int] = 512
 
     def get_cache_key(self):
-        return str(uuid.uuid5(uuid.NAMESPACE_OID, str(self)))
+        return str(uuid.uuid5(uuid.NAMESPACE_OID, str(self.preset_dict())))
+
+    def preset_dict(self):
+        data = asdict(self)
+        return dict((k, data[k]) for k in CACHE_KEY_FIELDS)
 
 
 class FileCache:
@@ -64,6 +78,3 @@ class FileCache:
 
 
 cache = FileCache()
-
-#0fd97754-3380-5bd7-aed6-432488198065
-#0fd97754-3380-5bd7-aed6-432488198065
