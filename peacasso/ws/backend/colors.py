@@ -1,0 +1,7 @@
+ERROR = "\033[91m"
+GREEN = "\033[92m"
+BLUE = "\033[94m"
+GRAY = "\033[90m"
+NC = "\033[0m"
+BOLD = "\033[1m"
+WARNING = "\033[93m"

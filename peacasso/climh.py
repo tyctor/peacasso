@@ -16,7 +16,8 @@ def ws(
     port: int = 443,
     path: str = "/ws/generate/",
     token: str = os.environ.get("MH_BACKEND_TOKEN"),
-    cuda_device: List[int] = [0]
+    cuda_device: List[int] = [0],
+    max_reconnect: int = 30,
 ):
     """
     Launch the peacasso websocket client.Pass in parameters scheme, host, port, path and cuda_device to override the default values.
@@ -27,7 +28,8 @@ def ws(
         port=port,
         path=path,
         token=token,
-        cuda_device=cuda_device
+        cuda_device=cuda_device,
+        max_reconnect=max_reconnect,
     ))        
         
 
