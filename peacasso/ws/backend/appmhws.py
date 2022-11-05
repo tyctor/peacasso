@@ -20,26 +20,26 @@ from .websocket import WebsocketHandler
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO)
 
 
-async def consume_request(queue, squeue):
+async def consume_request(request_queue, shared_queue):
     logging.info(f"{GREEN}Started request consumer{NC}")
     while True:
         await asyncio.sleep(0.01)
         try:
-            item = queue.get(timeout=0.01)
-            squeue.put(item)
-            queue.task_done()
+            item = request_queue.get(timeout=0.01)
+            shared_queue.put(item)
+            request_queue.task_done()
         except Empty:
             continue
         except KeyboardInterrupt:
             break
 
 
-async def consume_response(websocket, rqueue):
+async def consume_response(websocket, response_queue):
     logging.info(f"{GREEN}Started response consumer{NC}")
     while True:
         await asyncio.sleep(0.01)
         try:
-            item = rqueue.get(timeout=0.01)
+            item = response_queue.get(timeout=0.01)
             await websocket.send(json.dumps(item))
         except Empty:
             continue
@@ -57,29 +57,31 @@ async def main(
     max_reconnect: int = 30,
 ):
     if not token:
-        logging.info(f"{WARNING}Empty token, exiting...{NC}")
+        logging.error(f"{ERROR}Empty token, exiting...{NC}")
         return
-    reconnections = 0
+
     request_queue = SetQueue()
     shared_queue = mp.Queue()
     response_queue = mp.Queue()
+
+    consumers = []
+    for dev in cuda_device:
+        process = mp.Process(
+            target=consumer, args=(shared_queue, response_queue, dev)
+        )
+        consumers.append(process)
+        process.start()
+
     try:
         url = f"{scheme}://{host}:{port}{path}"
         async for websocket in websockets.connect(url):
             logging.info(f"{GREEN}Connected to websocket on %s{NC}", url)
-            
-            handler = WebsocketHandler(websocket, token, request_queue, shared_queue)
+
+            handler = WebsocketHandler(
+                websocket, token, request_queue, shared_queue, max_reconnect
+            )
             if not await handler.login():
                 return
-
-            consumers = []
-            for dev in cuda_device:
-                logging.info(f"{GREEN}Creating generator on cuda:%d{NC}", dev)
-                process = mp.Process(
-                    target=consumer, args=(shared_queue, response_queue, dev)
-                )
-                consumers.append(process)
-                process.start()
 
             request_queue_consumer = asyncio.create_task(
                 consume_request(request_queue, shared_queue)
@@ -105,7 +107,12 @@ async def main(
                 response_queue_consumer, return_exceptions=True
             )
     except websockets.exceptions.InvalidHandshake as exc:
-        logging.info(
+        logging.warning(
             f"{WARNING}Connection Closed:{NC} %s",
             str(exc),
         )
+    logging.warning(
+        f"{WARNING}Terminating gpu processes{NC}",
+    )
+    for process in consumers:
+        process.terminate()

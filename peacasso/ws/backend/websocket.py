@@ -3,6 +3,7 @@ import json
 import time
 from uuid import UUID
 from datetime import datetime
+from queue import Empty
 from typing import Any, List
 from pydantic import BaseModel
 
@@ -45,12 +46,15 @@ class WsAuthResponse(BaseModel):
 
 
 class WebsocketHandler:
-
-    def __init__(self, websocket, token, request_queue, shared_queue):
+    def __init__(
+        self, websocket, token, request_queue, shared_queue, max_reconnect=50
+    ):
         self._ws = websocket
         self._token = token
         self._request_queue = request_queue
         self._shared_queue = shared_queue
+        self._reconnections = 0
+        self._max_reconnect = max_reconnect
 
     async def login(self):
         ws_request = {
@@ -63,29 +67,29 @@ class WebsocketHandler:
             message = await self._ws.recv()
             ws_response = WsAuthResponse(**json.loads(message))
             if ws_response.response_status != 200:
-                logging.info(f"{WARNING}%s{NC}", ws_response.data.message)
+                logging.warning(f"{WARNING}%s{NC}", ws_response.data.message)
                 return False
             logging.info(f"{GREEN}Login OK{NC}")
         except json.JSONDecodeError as exc:
-            logging.info(
+            logging.warning(
                 f"{WARNING}Invalid JSON data:{NC} %s %s",
                 str(exc),
                 message_json,
             )
             return False
         except TypeError as exc:
-            logging.info(f"{WARNING}Invalid data format:{NC} %s", str(exc))
+            logging.warning(f"{WARNING}Invalid data format:{NC} %s", str(exc))
             return False
         except KeyboardInterrupt:
             return False
         except websockets.exceptions.ConnectionClosed as exc:
-            logging.info(
+            logging.warning(
                 f"{WARNING}Connection Closed:{NC} %s",
                 str(exc),
             )
             return False
         except Exception as exc:
-            logging.info(
+            logging.warning(
                 f"{WARNING}An error occurs during image generate:{NC} %s",
                 str(exc),
             )
@@ -96,6 +100,11 @@ class WebsocketHandler:
         method = getattr(self, action, None)
         if method:
             method(response.data)
+        else:
+            logging.debug(
+                f"{BLUE}Unknown action:{NC} %s",
+                action
+            )
 
     def handle_response(self, response):
         self.handle_action(response.action, response)
@@ -106,43 +115,24 @@ class WebsocketHandler:
             ws_response = WsResponse(**json.loads(message))
             self.handle_response(ws_response)
         except json.JSONDecodeError as exc:
-            logging.info(
+            logging.warning(
                 f"{WARNING}Invalid JSON data:{NC} %s %s",
                 str(exc),
                 message_json,
             )
         except TypeError as exc:
-            logging.info(
-                f"{WARNING}Invalid data format:{NC} %s", str(exc)
-            )
+            logging.warning(f"{WARNING}Invalid data format:{NC} %s", str(exc))
         except KeyboardInterrupt:
             raise KeyboardInterrupt
         except websockets.exceptions.ConnectionClosed as exc:
-            logging.info(
+            logging.warning(
                 f"{WARNING}Connection Closed:{NC} %s",
                 str(exc),
             )
-            reconnections += 1
-            if reconnections >= max_reconnect:
-                logging.error(
-                    f"{ERROR}Too many disconnections:{NC} %d %s",
-                    reconnections,
-                    str(exc),
-                )
-                request_queue_consumer.cancel()
-                await asyncio.gather(
-                    request_queue_consumer, return_exceptions=True
-                )
-                response_queue_consumer.cancel()
-                await asyncio.gather(
-                    response_queue_consumer, return_exceptions=True
-                )
-                return
             raise exc
         except Exception as exc:
-            logging.info(
-                f"{WARNING}An error occurs during image"
-                f" generate:{NC} %s\n%s",
+            logging.warning(
+                f"{WARNING}An error occurs during image generate:{NC} %s\n%s",
                 str(exc),
                 message,
             )
@@ -155,8 +145,10 @@ class WebsocketHandler:
         if data and data.image_url is None:
             self._request_queue.put(data)
 
-    def clearqueue(self):
+    def clearqueue(self, data):
         self._request_queue.clear()
-        with self._shared_queue._notempty:
-            self._shared_queue._buffer.clear()
-            self._shared_queue._notempty.notify()
+        try:
+            while True:
+                self._shared_queue.get_nowait()
+        except Empty:
+            pass

@@ -32,9 +32,9 @@ def generate(prompt_config: GeneratorConfig, generator) -> str:
     image = cache.get(prompt_config)
     if image:
         image = io.BytesIO(image.read())
-        #time.sleep(random.random() * 3 * generator.cuda_device)
+        # time.sleep(random.random() * 3 * generator.cuda_device)
         logging.info(
-            f"{GRAY}Prompt: {BOLD}%-40s{NC}{GRAY} Cached{NC}",
+            f"{GRAY}Prompt: {BOLD}%-50s{NC}{GRAY} Cached{NC}",
             satitize_prompt(prompt_config.prompt[:50]),
         )
     else:
@@ -50,12 +50,12 @@ def generate(prompt_config: GeneratorConfig, generator) -> str:
         pil_image.save(image, format="PNG")
         pil_image.close()
         cache.set(prompt_config, image.getvalue())
-        #time.sleep(random.random() * 3 * generator.cuda_device)
+        # time.sleep(random.random() * 3 * generator.cuda_device)
         prompt = prompt_config.prompt
         if isinstance(prompt, (list, tuple)):
             prompt = prompt[0]
         logging.info(
-            f"{GREEN}Prompt: {BOLD}%-40s{NC}{GREEN} Created (%s){NC}",
+            f"{GREEN}Prompt: {BOLD}%-50s{NC}{GREEN} Created (%s){NC}",
             satitize_prompt(prompt[:50]),
             generator.device,
         )
@@ -68,7 +68,7 @@ def consumer(in_queue, out_queue, cuda_device):
         generator = ImageGenerator(token=hf_token, cuda_device=cuda_device)
     else:
         generator = FakeImageGenerator(token=hf_token, cuda_device=cuda_device)
-    logging.info(f"{GREEN}Started queue consumer for %s{NC}", generator.device)
+    logging.info(f"{GREEN}Started queue consumer with device %s{NC}", generator.device)
     while True:
         try:
             item = in_queue.get()
