@@ -35,7 +35,7 @@ def generate(generated_image, generator) -> str:
         image = io.BytesIO(image.read())
         # time.sleep(random.random() * 3 * generator.cuda_device)
         logging.info(
-            f"{GRAY}Prompt: {BOLD}%-50s{NC}{GRAY} Cached %s{NC}",
+                f"{GRAY}Prompt: {BOLD}%-50s{NC}{GRAY} Cached Domain: %s{NC}",
             satitize_prompt(prompt_config.prompt[:50]),
             generated_image.website,
         )
@@ -57,7 +57,7 @@ def generate(generated_image, generator) -> str:
         if isinstance(prompt, (list, tuple)):
             prompt = prompt[0]
         logging.info(
-            f"{GREEN}Prompt: {BOLD}%-50s{NC}{GREEN} Created (%s) %s{NC}",
+            f"{GREEN}Prompt: {BOLD}%-50s{NC}{GREEN} Created (%s) Domain: %s{NC}",
             satitize_prompt(prompt[:50]),
             generator.device,
             generated_image.website,
