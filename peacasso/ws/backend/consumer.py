@@ -27,15 +27,17 @@ def satitize_prompt(prompt, length=50):
     return prompt[: length - 3] + "..."
 
 
-def generate(prompt_config: GeneratorConfig, generator) -> str:
+def generate(generated_image, generator) -> str:
     """Generate an image given some prompt"""
+    prompt_config = generated_image.prompt_config
     image = cache.get(prompt_config)
     if image:
         image = io.BytesIO(image.read())
         # time.sleep(random.random() * 3 * generator.cuda_device)
         logging.info(
-            f"{GRAY}Prompt: {BOLD}%-50s{NC}{GRAY} Cached{NC}",
+            f"{GRAY}Prompt: {BOLD}%-50s{NC}{GRAY} Cached %s{NC}",
             satitize_prompt(prompt_config.prompt[:50]),
+            generated_image.website,
         )
     else:
         if prompt_config.init_image:
@@ -55,9 +57,10 @@ def generate(prompt_config: GeneratorConfig, generator) -> str:
         if isinstance(prompt, (list, tuple)):
             prompt = prompt[0]
         logging.info(
-            f"{GREEN}Prompt: {BOLD}%-50s{NC}{GREEN} Created (%s){NC}",
+            f"{GREEN}Prompt: {BOLD}%-50s{NC}{GREEN} Created (%s) %s{NC}",
             satitize_prompt(prompt[:50]),
             generator.device,
+            generated_image.website,
         )
     return image
 
@@ -68,11 +71,13 @@ def consumer(in_queue, out_queue, cuda_device):
         generator = ImageGenerator(token=hf_token, cuda_device=cuda_device)
     else:
         generator = FakeImageGenerator(token=hf_token, cuda_device=cuda_device)
-    logging.info(f"{GREEN}Started queue consumer with device %s{NC}", generator.device)
+    logging.info(
+        f"{GREEN}Started queue consumer with device %s{NC}", generator.device
+    )
     while True:
         try:
             item = in_queue.get()
-            image = generate(item.prompt_config, generator)
+            image = generate(item, generator)
             ws_request = {
                 "action": "update",
                 "request_id": time.time(),
